@@ -1,0 +1,13 @@
+{
+  "name": "SnailTube",
+  "short_name": "SnailTube",
+  "description": "A creator-first video community.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff0000",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
