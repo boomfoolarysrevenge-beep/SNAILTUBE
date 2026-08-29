@@ -15,6 +15,12 @@ let livePrepared = false;
 let cameraReady = false;
 const accountStorageKey = 'snailtube-account';
 const apiBase = window.location.origin;
+
+// ===== SNAILTUBE BACKEND (leave empty until you host the server) =====
+const BACKEND_URL = "";   // example: "https://snailtube-xxxx.onrender.com"
+const API_KEY     = "change-me-to-something-secret";
+// ====================================================================
+
 let installPrompt;
 const videoDatabase = new Promise((resolve, reject) => {
   const request = indexedDB.open('snailtube-videos', 1);
@@ -346,69 +352,94 @@ $('#publishButton').addEventListener('click', async () => {
     showToast('Choose a video before publishing.');
     return;
   }
+
   const title = $('#videoTitle').value.trim() || selectedVideo.name;
   const format = $('#videoFormat').value;
-  const category = $('#videoCategory').value;
-  const poll = { question: $('#pollQuestion').value.trim(), one: $('#pollOptionOne').value.trim(), two: $('#pollOptionTwo').value.trim() };
+  const category = $('#videoCategory') ? $('#videoCategory').value : 'People & blogs';
+  const poll = {
+    question: $('#pollQuestion').value.trim(),
+    one: $('#pollOptionOne').value.trim(),
+    two: $('#pollOptionTwo').value.trim()
+  };
   if (poll.question && (!poll.one || !poll.two)) {
     showToast('Add both poll options or leave the poll blank.');
     return;
   }
-  try {
-    const formData = new FormData();
-    formData.append('video', selectedVideo);
-    formData.append('title', title);
-    formData.append('format', format);
-    formData.append('category', category);
-    const response = await fetch(`${apiBase}/api/videos`, { method: 'POST', body: formData });
-    if (!response.ok) throw new Error('Upload server rejected the video.');
-    const published = await response.json();
-    addPublishedVideo(`${apiBase}${published.url}`, title, format, poll, category);
-    closeUpload();
-    addPoints(25);
-    showToast('Video published for everyone.');
-    selectedVideo = undefined;
-    videoFile.value = '';
-    $('#videoTitle').value = '';
-    $('#uploadStatus').textContent = '';
-    return;
-  } catch (error) {
-    showToast('The shared server is unavailable. Start the SnailTube server first.');
-    return;
+
+  // Try real backend first
+  if (BACKEND_URL) {
+    try {
+      showToast('Uploading…');
+      const formData = new FormData();
+      formData.append('file', selectedVideo);
+      formData.append('title', title);
+      formData.append('description', category + (poll.question ? ' | ' + poll.question : ''));
+
+      const response = await fetch(BACKEND_URL + '/upload', {
+        method: 'POST',
+        headers: { 'X-API-Key': API_KEY },
+        body: formData
+      });
+      if (!response.ok) throw new Error('Upload failed');
+      const published = await response.json();
+
+      addPublishedVideo(published.url, title, format, poll, category);
+      closeUpload();
+      addPoints(25);
+      showToast('Video published for everyone!');
+      selectedVideo = undefined;
+      videoFile.value = '';
+      $('#videoTitle').value = '';
+      $('#uploadStatus').textContent = '';
+      return;
+    } catch (err) {
+      console.warn('Backend upload failed, using local storage', err);
+      showToast('Server busy – saving on this device for now.');
+    }
   }
+
+  // Fallback: browser storage
   try {
     const videoId = await saveVideoFile(selectedVideo);
-      addHistory({ type: 'video', title, format, category, date: new Date().toLocaleDateString(), videoId, poll });
+    addHistory({ type: 'video', title, format, category, date: new Date().toLocaleDateString(), videoId, poll });
+    addPublishedVideo(URL.createObjectURL(selectedVideo), title, format, poll, category);
+    closeUpload();
+    addPoints(25);
+    showToast('Video saved on this device.');
   } catch (error) {
-    showToast('Your browser could not store this video. Check available device storage.');
+    showToast('Could not store the video. Check device storage.');
     return;
   }
-    addPublishedVideo(URL.createObjectURL(selectedVideo), title, format, poll, category);
-  closeUpload();
-  addPoints(25);
-  showToast('Your video is queued for upload.');
+
   selectedVideo = undefined;
   videoFile.value = '';
   $('#videoTitle').value = '';
   $('#uploadStatus').textContent = '';
-  $('#editorPreview').hidden = true;
-  $('#editorPreview').removeAttribute('src');
-  $('#soundBoost').value = 1;
-  $('#soundValue').textContent = '1x';
+  if ($('#editorPreview')) {
+    $('#editorPreview').hidden = true;
+    $('#editorPreview').removeAttribute('src');
+  }
+  if ($('#soundBoost')) {
+    $('#soundBoost').value = 1;
+    $('#soundValue').textContent = '1x';
+  }
   $('#pollQuestion').value = '';
   $('#pollOptionOne').value = '';
   $('#pollOptionTwo').value = '';
 });
 
 async function loadServerVideos() {
+  if (!BACKEND_URL) return;
   try {
-    const response = await fetch(`${apiBase}/api/videos`);
+    const response = await fetch(BACKEND_URL + '/videos');
     if (!response.ok) return;
     const videos = await response.json();
-    videos.reverse().forEach((item) => addPublishedVideo(`${apiBase}${item.url}`, item.title, item.format, item.poll || {}, item.category));
-    if (videos.length) $('.empty-feed').hidden = true;
+    videos.reverse().forEach((item) => {
+      addPublishedVideo(item.url, item.title, 'Full video', {}, item.description || 'People & blogs');
+    });
+    if (videos.length && $('.empty-feed')) $('.empty-feed').hidden = true;
   } catch (error) {
-    console.info('Shared video server is not connected yet.');
+    console.info('Backend not connected yet – that is ok.');
   }
 }
 loadServerVideos();
