@@ -15,12 +15,43 @@ let livePrepared = false;
 let cameraReady = false;
 const accountStorageKey = 'snailtube-account';
 
-// Safe Supabase Initialization (Prevents duplicate 'const supabase' crashes)
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+// Supabase Setup
 const SUPABASE_URL = "https://sxlcsnufefvplhwhoqqn.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bGNzbnVmZWZ2cGxod2hvcXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MjA2NDYsImV4cCI6MjEwMzk5NjY0Nn0.m568iiQWaa7XgBcR7kjb-vvHROdPLHXKuAUGRwDXD10";
-const supabase = (window.supabase && SUPABASE_URL !== "https://sxlcsnufefvplhwhoqqn.supabase.co") 
+
+// Safely initialize without throwing errors
+const supabase = (typeof window.supabase !== 'undefined' && SUPABASE_URL !== "https://sxlcsnufefvplhwhoqqn.supabase.co") 
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
   : null;
+
+// Safe wrapper for fetching videos on load
+async function loadServerVideos() {
+  if (!supabase) {
+    console.warn('Supabase is not configured yet. Running in local mode.');
+    return;
+  }
+
+  try {
+    const { data: videos, error } = await supabase
+      .from('videos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (videos && videos.length > 0) {
+      videos.forEach((item) => {
+        addPublishedVideo(item.url, item.title, item.format || 'Full video', {}, item.category || 'People & blogs');
+      });
+      if ($('.empty-feed')) $('.empty-feed').hidden = true;
+    }
+  } catch (error) {
+    console.error('Error fetching videos from Supabase:', error);
+  }
+}
 
 // Helper Functions
 function showToast(message) {
@@ -97,16 +128,17 @@ $('#googleButton')?.addEventListener('click', () => {
 });
 
 $('#emailForm')?.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const formInputs = event.currentTarget.querySelectorAll('input');
-  const email = formInputs[0].value.trim().toLowerCase();
-  const password = formInputs[1].value;
+  event.preventDefault(); // Prevents browser refresh on click
+  
+  const email = $('#emailInput')?.value.trim().toLowerCase();
+  const password = $('#passwordInput')?.value;
   const account = JSON.parse(localStorage.getItem(accountStorageKey) || 'null');
   
   if (!account || account.email !== email || account.password !== password) {
     showToast('Email or password is incorrect.');
     return;
   }
+  
   localStorage.setItem('snailtube-session', account.email);
   updateAccountButton();
   closeAuth();
