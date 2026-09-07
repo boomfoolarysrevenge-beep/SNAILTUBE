@@ -1,4 +1,4 @@
-const $ = (selector) => document.querySelector(selector);
+  const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 const modalBackdrop = $('#modalBackdrop');
@@ -18,10 +18,11 @@ const accountStorageKey = 'snailtube-account';
 // Initialize Supabase Client
 const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
 const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 // Fetch videos on load from Supabase
 async function loadServerVideos() {
+  if (!supabase) return;
   try {
     const { data: videos, error } = await supabase
       .from('videos')
@@ -40,7 +41,6 @@ async function loadServerVideos() {
     console.error('Error fetching videos from Supabase:', error);
   }
 }
-loadServerVideos();
 
 let installPrompt;
 const videoDatabase = new Promise((resolve, reject) => {
@@ -56,14 +56,16 @@ noiseControl.innerHTML = '<label><input type="checkbox" id="noiseReduction" chec
 if ($('#cameraMessage')) $('#cameraMessage').after(noiseControl);
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./service-worker.js').then((registration) => registration.update());
+  navigator.serviceWorker.register('./service-worker.js').then((registration) => registration.update()).catch(() => {});
 }
+
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   installPrompt = event;
-  $('#installButton').hidden = false;
+  if ($('#installButton')) $('#installButton').hidden = false;
 });
-$('#installButton').addEventListener('click', async () => {
+
+$('#installButton')?.addEventListener('click', async () => {
   if (!installPrompt) {
     showToast('Use your browser menu and choose Install SnailTube.');
     return;
@@ -71,36 +73,39 @@ $('#installButton').addEventListener('click', async () => {
   installPrompt.prompt();
   await installPrompt.userChoice;
   installPrompt = undefined;
-  $('#installButton').hidden = true;
+  if ($('#installButton')) $('#installButton').hidden = true;
 });
 
 localStorage.removeItem('snailtube-session');
 
 function showToast(message) {
+  if (!toast) return;
   toast.textContent = message;
   toast.classList.add('show');
   window.setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
 function openAuth() {
-  $('#accountMenu').hidden = true;
-  modalBackdrop.hidden = false;
-  authModal.hidden = false;
-  resetModal.hidden = true;
+  if ($('#accountMenu')) $('#accountMenu').hidden = true;
+  if (modalBackdrop) modalBackdrop.hidden = false;
+  if (authModal) authModal.hidden = false;
+  if (resetModal) resetModal.hidden = true;
 }
 
 function updateAccountButton() {
   const account = JSON.parse(localStorage.getItem(accountStorageKey) || 'null');
   const accountButton = $('#accountButton');
+  if (!accountButton) return;
+
   if (account) {
     accountButton.textContent = account.name.slice(0, 2).toUpperCase();
     accountButton.title = `Signed in as ${account.email}`;
-    $('#accountLargeAvatar').textContent = account.name.slice(0, 2).toUpperCase();
-    $('#accountName').textContent = account.name;
-    $('#accountEmail').textContent = account.email;
-    $('#verifiedBadge').hidden = account.email !== verifiedEmail;
-    $('#videoCount').textContent = getHistory().filter((item) => item.type === 'video').length;
-    $('#liveCount').textContent = getHistory().filter((item) => item.type === 'live').length;
+    if ($('#accountLargeAvatar')) $('#accountLargeAvatar').textContent = account.name.slice(0, 2).toUpperCase();
+    if ($('#accountName')) $('#accountName').textContent = account.name;
+    if ($('#accountEmail')) $('#accountEmail').textContent = account.email;
+    if ($('#verifiedBadge')) $('#verifiedBadge').hidden = account.email !== verifiedEmail;
+    if ($('#videoCount')) $('#videoCount').textContent = getHistory().filter((item) => item.type === 'video').length;
+    if ($('#liveCount')) $('#liveCount').textContent = getHistory().filter((item) => item.type === 'live').length;
   } else {
     accountButton.textContent = 'BM';
     accountButton.title = 'Open account menu';
@@ -137,12 +142,12 @@ async function loadVideoFile(id) {
 }
 
 function closeAuth() {
-  modalBackdrop.hidden = true;
+  if (modalBackdrop) modalBackdrop.hidden = true;
 }
 
 async function openLive() {
-  liveBackdrop.hidden = false;
-  $('#cameraMessage').textContent = 'Opening your camera and microphone...';
+  if (liveBackdrop) liveBackdrop.hidden = false;
+  if ($('#cameraMessage')) $('#cameraMessage').textContent = 'Opening your camera and microphone...';
   await requestCamera();
 }
 
@@ -151,36 +156,39 @@ function closeLive() {
     cameraStream.getTracks().forEach((track) => track.stop());
     cameraStream = undefined;
   }
-  $('#cameraPreview').srcObject = null;
+  if ($('#cameraPreview')) $('#cameraPreview').srcObject = null;
   cameraReady = false;
   livePrepared = false;
-  $('#goLiveButton').disabled = true;
-  $('#goLiveButton').textContent = 'Go live';
-  $('#goLiveButton').classList.remove('ending');
-  $('#streamStatus').textContent = 'Not live';
-  $('#cameraButton').hidden = true;
-  liveBackdrop.hidden = true;
+  if ($('#goLiveButton')) {
+    $('#goLiveButton').disabled = true;
+    $('#goLiveButton').textContent = 'Go live';
+    $('#goLiveButton').classList.remove('ending');
+  }
+  if ($('#streamStatus')) $('#streamStatus').textContent = 'Not live';
+  if ($('#cameraButton')) $('#cameraButton').hidden = true;
+  if (liveBackdrop) liveBackdrop.hidden = true;
 }
 
-$('#joinButton').addEventListener('click', openAuth);
-$('#accountButton').addEventListener('click', () => {
+$('#joinButton')?.addEventListener('click', openAuth);
+$('#accountButton')?.addEventListener('click', () => {
   if (localStorage.getItem('snailtube-session')) {
-    $('#accountMenu').hidden = !$('#accountMenu').hidden;
+    if ($('#accountMenu')) $('#accountMenu').hidden = !$('#accountMenu').hidden;
     renderHistory('videos');
   } else {
     openAuth();
   }
 });
-$('#closeModal').addEventListener('click', closeAuth);
-modalBackdrop.addEventListener('click', (event) => {
+
+$('#closeModal')?.addEventListener('click', closeAuth);
+modalBackdrop?.addEventListener('click', (event) => {
   if (event.target === modalBackdrop) closeAuth();
 });
 
-$('#googleButton').addEventListener('click', () => {
+$('#googleButton')?.addEventListener('click', () => {
   showToast('Google OAuth needs a server client ID to go live. Use Create account for this preview.');
 });
 
-$('#emailForm').addEventListener('submit', (event) => {
+$('#emailForm')?.addEventListener('submit', (event) => {
   event.preventDefault();
   const formInputs = event.currentTarget.querySelectorAll('input');
   const email = formInputs[0].value.trim().toLowerCase();
@@ -196,48 +204,51 @@ $('#emailForm').addEventListener('submit', (event) => {
   showToast(`Signed in as ${account.name}. Welcome to SnailTube.`);
 });
 
-const createAccountButton = document.createElement('button');
-createAccountButton.className = 'forgot-link';
-createAccountButton.textContent = 'Create account';
-$('#emailForm').after(createAccountButton);
-createAccountButton.addEventListener('click', () => {
-  const name = window.prompt('Your name');
-  const email = window.prompt('Your Gmail address');
-  const password = window.prompt('Choose a password (8+ characters)');
-  if (!name || !email || !email.endsWith('@gmail.com') || !password || password.length < 8) {
-    showToast('Use a name, Gmail address, and password with 8+ characters.');
-    return;
-  }
-  const account = { name, email: email.toLowerCase(), password };
-  localStorage.setItem(accountStorageKey, JSON.stringify(account));
-  localStorage.setItem('snailtube-session', email);
-  updateAccountButton();
-  closeAuth();
-  showToast(`Account created for ${name}.`);
-});
+if ($('#emailForm')) {
+  const createAccountButton = document.createElement('button');
+  createAccountButton.className = 'forgot-link';
+  createAccountButton.textContent = 'Create account';
+  $('#emailForm').after(createAccountButton);
+  createAccountButton.addEventListener('click', () => {
+    const name = window.prompt('Your name');
+    const email = window.prompt('Your Gmail address');
+    const password = window.prompt('Choose a password (8+ characters)');
+    if (!name || !email || !email.endsWith('@gmail.com') || !password || password.length < 8) {
+      showToast('Use a name, Gmail address, and password with 8+ characters.');
+      return;
+    }
+    const account = { name, email: email.toLowerCase(), password };
+    localStorage.setItem(accountStorageKey, JSON.stringify(account));
+    localStorage.setItem('snailtube-session', email);
+    updateAccountButton();
+    closeAuth();
+    showToast(`Account created for ${name}.`);
+  });
+}
 
-$('#forgotButton').addEventListener('click', () => {
-  authModal.hidden = true;
-  resetModal.hidden = false;
+$('#forgotButton')?.addEventListener('click', () => {
+  if (authModal) authModal.hidden = true;
+  if (resetModal) resetModal.hidden = false;
 });
-$('#backToLogin').addEventListener('click', () => {
-  resetModal.hidden = true;
-  authModal.hidden = false;
+$('#backToLogin')?.addEventListener('click', () => {
+  if (resetModal) resetModal.hidden = true;
+  if (authModal) authModal.hidden = false;
 });
-$('#closeReset').addEventListener('click', closeAuth);
-$('#resetForm').addEventListener('submit', (event) => {
+$('#closeReset')?.addEventListener('click', closeAuth);
+$('#resetForm')?.addEventListener('submit', (event) => {
   event.preventDefault();
   closeAuth();
   showToast('Reset link sent. Check your Gmail inbox.');
 });
 
-function openUpload() { uploadBackdrop.hidden = false; }
-function closeUpload() { uploadBackdrop.hidden = true; }
-$('#uploadButton').addEventListener('click', openUpload);
-if ($('#heroUpload')) $('#heroUpload').addEventListener('click', openUpload);
-if ($('#emptyUpload')) $('#emptyUpload').addEventListener('click', openUpload);
-$('#closeUpload').addEventListener('click', closeUpload);
-uploadBackdrop.addEventListener('click', (event) => {
+function openUpload() { if (uploadBackdrop) uploadBackdrop.hidden = false; }
+function closeUpload() { if (uploadBackdrop) uploadBackdrop.hidden = true; }
+
+$('#uploadButton')?.addEventListener('click', openUpload);
+$('#heroUpload')?.addEventListener('click', openUpload);
+$('#emptyUpload')?.addEventListener('click', openUpload);
+$('#closeUpload')?.addEventListener('click', closeUpload);
+uploadBackdrop?.addEventListener('click', (event) => {
   if (event.target === uploadBackdrop) closeUpload();
 });
 
@@ -256,14 +267,16 @@ if ($('#editorPreview')) $('#editorPreview').after(cleanupControl);
 
 function setSelectedVideo(file) {
   if (!file || !file.type.startsWith('video/')) {
-    $('#uploadStatus').textContent = 'Please choose a video file.';
+    if ($('#uploadStatus')) $('#uploadStatus').textContent = 'Please choose a video file.';
     return;
   }
   selectedVideo = file;
   const preview = $('#editorPreview');
-  preview.src = URL.createObjectURL(file);
-  preview.hidden = false;
-  $('#uploadStatus').textContent = `${file.name} is ready to publish.`;
+  if (preview) {
+    preview.src = URL.createObjectURL(file);
+    preview.hidden = false;
+  }
+  if ($('#uploadStatus')) $('#uploadStatus').textContent = `${file.name} is ready to publish.`;
 }
 
 if ($('#videoFormat')) {
@@ -272,14 +285,14 @@ if ($('#videoFormat')) {
   $('#videoFormat').closest('label').before(categoryField);
 }
 
-$('#soundBoost').addEventListener('input', (event) => {
+$('#soundBoost')?.addEventListener('input', (event) => {
   const amount = Number(event.target.value);
-  $('#soundValue').textContent = `${amount}x`;
+  if ($('#soundValue')) $('#soundValue').textContent = `${amount}x`;
   if (!previewGain) return;
   previewGain.gain.value = amount;
 });
 
-$('#editorPreview').addEventListener('play', () => {
+$('#editorPreview')?.addEventListener('play', () => {
   if (!previewAudioContext) {
     previewAudioContext = new AudioContext();
     previewSource = previewAudioContext.createMediaElementSource($('#editorPreview'));
@@ -290,26 +303,29 @@ $('#editorPreview').addEventListener('play', () => {
     previewSource.connect(previewFilter).connect(previewGain).connect(previewAudioContext.destination);
   }
   previewAudioContext.resume();
-  previewGain.gain.value = Number($('#soundBoost').value);
-  previewFilter.frequency.value = $('#videoNoiseReduction').checked ? 90 : 10;
+  previewGain.gain.value = Number($('#soundBoost')?.value || 1);
+  if ($('#videoNoiseReduction')) previewFilter.frequency.value = $('#videoNoiseReduction').checked ? 90 : 10;
 });
 
-$('#videoNoiseReduction').addEventListener('change', (event) => {
+$('#videoNoiseReduction')?.addEventListener('change', (event) => {
   if (previewFilter) previewFilter.frequency.value = event.target.checked ? 90 : 10;
 });
 
-$('#chooseFile').addEventListener('click', () => videoFile.click());
-videoFile.addEventListener('change', () => setSelectedVideo(videoFile.files[0]));
-dropZone.addEventListener('dragover', (event) => {
-  event.preventDefault();
-  dropZone.style.borderColor = 'var(--coral)';
-});
-dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
-dropZone.addEventListener('drop', (event) => {
-  event.preventDefault();
-  dropZone.style.borderColor = '';
-  setSelectedVideo(event.dataTransfer.files[0]);
-});
+$('#chooseFile')?.addEventListener('click', () => videoFile?.click());
+videoFile?.addEventListener('change', () => setSelectedVideo(videoFile.files[0]));
+
+if (dropZone) {
+  dropZone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropZone.style.borderColor = 'var(--coral)';
+  });
+  dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+  dropZone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropZone.style.borderColor = '';
+    setSelectedVideo(event.dataTransfer.files[0]);
+  });
+}
 
 function addPublishedVideo(source, title, format, poll, category = 'People & blogs') {
   const account = JSON.parse(localStorage.getItem(accountStorageKey) || 'null');
@@ -320,21 +336,7 @@ function addPublishedVideo(source, title, format, poll, category = 'People & blo
   card.querySelector('h3').textContent = title;
   const video = card.querySelector('video');
   video.src = source;
-  
-  let nextAdAt = 240;
-  let startAdChecked = false;
-  video.addEventListener('loadedmetadata', () => {
-    if (category !== 'Music' && video.duration < 240 && !startAdChecked) {
-      startAdChecked = true;
-      if (Math.random() < 0.25) showVideoAd(card, 'start');
-    }
-  });
-  video.addEventListener('timeupdate', () => {
-    if (category !== 'Music' && video.duration >= 240 && video.currentTime >= nextAdAt) {
-      showVideoAd(card, 'mid-roll');
-      nextAdAt += 240;
-    }
-  });
+
   card.querySelector('.comment-form').addEventListener('submit', (event) => {
     event.preventDefault();
     const input = event.currentTarget.querySelector('input');
@@ -344,172 +346,49 @@ function addPublishedVideo(source, title, format, poll, category = 'People & blo
     card.querySelector('.comments-list').append(comment);
     input.value = '';
   });
-  card.querySelectorAll('.video-poll button').forEach((button) => button.addEventListener('click', () => {
-    card.querySelectorAll('.video-poll button').forEach((option) => { option.disabled = true; });
-    button.classList.add('selected');
-  }));
-  $('#videoGrid').prepend(card);
+
+  if ($('#videoGrid')) $('#videoGrid').prepend(card);
   if ($('.empty-feed')) $('.empty-feed').hidden = true;
 }
 
-async function showVideoAd(card, placement) {
-  const ad = JSON.parse(localStorage.getItem('snailtube-ad') || 'null');
-  if (!ad || card.querySelector('.video-ad-overlay')) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'video-ad-overlay';
-  overlay.innerHTML = `<small>Advertisement · ${placement}</small><video autoplay muted playsinline></video><b></b><span></span><button type="button">Continue</button>`;
-  if (ad.videoId) {
-    const file = await loadVideoFile(ad.videoId);
-    if (file) overlay.querySelector('video').src = URL.createObjectURL(file);
-  }
-  overlay.querySelector('b').textContent = ad.title;
-  overlay.querySelector('span').textContent = ad.message;
-  overlay.querySelector('button').addEventListener('click', () => overlay.remove());
-  card.querySelector('.published-thumbnail').append(overlay);
-}
-
-// Publish button logic strictly using Supabase with IndexedDB fallback
-$('#publishButton').addEventListener('click', async () => {
+$('#publishButton')?.addEventListener('click', async () => {
   if (!selectedVideo) {
     showToast('Choose a video before publishing.');
     return;
   }
 
-  const title = $('#videoTitle').value.trim() || selectedVideo.name;
-  const format = $('#videoFormat').value;
+  const title = $('#videoTitle')?.value.trim() || selectedVideo.name;
+  const format = $('#videoFormat')?.value || 'Full video';
   const category = $('#videoCategory') ? $('#videoCategory').value : 'People & blogs';
   const poll = {
-    question: $('#pollQuestion').value.trim(),
-    one: $('#pollOptionOne').value.trim(),
-    two: $('#pollOptionTwo').value.trim()
+    question: $('#pollQuestion')?.value.trim() || '',
+    one: $('#pollOptionOne')?.value.trim() || '',
+    two: $('#pollOptionTwo')?.value.trim() || ''
   };
 
-  if (poll.question && (!poll.one || !poll.two)) {
-    showToast('Add both poll options or leave the poll blank.');
-    return;
-  }
-
   try {
-    showToast('Uploading to cloud...');
-    const fileName = `${Date.now()}-${selectedVideo.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-
-    // 1. Upload to Supabase Bucket
-    const { error: uploadError } = await supabase.storage
-      .from('videos')
-      .upload(fileName, selectedVideo);
-
-    if (uploadError) throw uploadError;
-
-    // 2. Resolve public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('videos')
-      .getPublicUrl(fileName);
-
-    // 3. Save entry to Supabase DB Table
-    const { error: dbError } = await supabase
-      .from('videos')
-      .insert([{ title, format, category, url: publicUrl }]);
-
-    if (dbError) throw dbError;
-
-    addPublishedVideo(publicUrl, title, format, poll, category);
-    showToast('Video published globally!');
-  } catch (err) {
-    console.warn('Supabase upload failed, falling back to local storage', err);
-    try {
-      const videoId = await saveVideoFile(selectedVideo);
-      addHistory({ type: 'video', title, format, category, date: new Date().toLocaleDateString(), videoId, poll });
-      addPublishedVideo(URL.createObjectURL(selectedVideo), title, format, poll, category);
-      showToast('Cloud upload failed – saved locally instead.');
-    } catch (localError) {
-      showToast('Could not store video locally.');
-      return;
-    }
+    const videoId = await saveVideoFile(selectedVideo);
+    addHistory({ type: 'video', title, format, category, date: new Date().toLocaleDateString(), videoId, poll });
+    addPublishedVideo(URL.createObjectURL(selectedVideo), title, format, poll, category);
+    showToast('Video published successfully.');
+  } catch (error) {
+    showToast('Could not store the video.');
+    return;
   }
 
   closeUpload();
   addPoints(25);
-
-  // Reset Form
-  selectedVideo = undefined;
-  videoFile.value = '';
-  $('#videoTitle').value = '';
-  $('#uploadStatus').textContent = '';
-  if ($('#editorPreview')) {
-    $('#editorPreview').hidden = true;
-    $('#editorPreview').removeAttribute('src');
-  }
-  if ($('#soundBoost')) {
-    $('#soundBoost').value = 1;
-    $('#soundValue').textContent = '1x';
-  }
-  $('#pollQuestion').value = '';
-  $('#pollOptionOne').value = '';
-  $('#pollOptionTwo').value = '';
 });
 
-// Restore locally saved videos
-getHistory().filter((item) => item.type === 'video').forEach(async (item) => {
-  try {
-    const file = item.videoId ? await loadVideoFile(item.videoId) : null;
-    if (file) addPublishedVideo(URL.createObjectURL(file), item.title, item.format, item.poll || {}, item.category);
-  } catch (error) {
-    showToast('One saved video could not be restored.');
-  }
-});
-
-$$('.tab').forEach((tab) => tab.addEventListener('click', () => {
-  $$('.tab').forEach((item) => item.classList.remove('active'));
-  tab.classList.add('active');
-  const feed = tab.dataset.feed;
-  $$('.video-card').forEach((card) => {
-    card.hidden = feed !== 'all' && card.dataset.type !== feed;
-  });
-}));
-
-$('#browseButton').addEventListener('click', () => $('#feed-title').scrollIntoView({ behavior: 'smooth' }));
-$('#themeButton').addEventListener('click', () => {
+$('#browseButton')?.addEventListener('click', () => $('#feed-title')?.scrollIntoView({ behavior: 'smooth' }));
+$('#themeButton')?.addEventListener('click', () => {
   document.body.classList.toggle('night');
   showToast(document.body.classList.contains('night') ? 'Evening mode on.' : 'Daylight mode on.');
 });
 
-const adCreator = document.createElement('div');
-adCreator.className = 'ad-creator';
-adCreator.innerHTML = '<h3>Create a video ad</h3><input id="adTitle" placeholder="Product or business name" /><textarea id="adMessage" placeholder="Short message"></textarea><input id="adVideo" type="file" accept="video/*" /><video id="adPreview" controls muted playsinline hidden></video><button id="saveAd" type="button">Save ad</button><button id="closeAd" type="button">Cancel</button>';
-document.body.append(adCreator);
-
-$('#advertiseButton').addEventListener('click', () => adCreator.classList.add('open'));
-$('#closeAd').addEventListener('click', () => adCreator.classList.remove('open'));
-$('#adVideo').addEventListener('change', () => {
-  const file = $('#adVideo').files[0];
-  if (!file) return;
-  $('#adPreview').src = URL.createObjectURL(file);
-  $('#adPreview').hidden = false;
-});
-$('#saveAd').addEventListener('click', async () => {
-  const title = $('#adTitle').value.trim();
-  const message = $('#adMessage').value.trim();
-  const video = $('#adVideo').files[0];
-  if (!title || !message || !video) {
-    showToast('Add an ad name, message, and video first.');
-    return;
-  }
-  try {
-    const videoId = await saveVideoFile(video);
-    localStorage.setItem('snailtube-ad', JSON.stringify({ title, message, videoId }));
-  } catch (error) {
-    showToast('Your browser could not store this ad video.');
-    return;
-  }
-  adCreator.classList.remove('open');
-  showToast('Ad saved. It will appear on eligible videos.');
-});
-
-if ($('#adsToggle')) $('#adsToggle').addEventListener('change', (event) => showToast(event.target.checked ? 'Ads are off for free.' : 'Ads are back on.'));
-if ($('#aiHelper')) $('#aiHelper').addEventListener('click', () => showToast('Tell Snail AI what you want to watch.'));
-$('#liveButton').addEventListener('click', openLive);
-$('#closeLive').addEventListener('click', closeLive);
-liveBackdrop.addEventListener('click', (event) => {
+$('#liveButton')?.addEventListener('click', openLive);
+$('#closeLive')?.addEventListener('click', closeLive);
+liveBackdrop?.addEventListener('click', (event) => {
   if (event.target === liveBackdrop) closeLive();
 });
 
@@ -525,86 +404,15 @@ async function requestCamera() {
       audio: noiseReduction ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : true,
     });
     const preview = $('#cameraPreview');
-    preview.srcObject = cameraStream;
-    preview.hidden = false;
-    if ($('#liveStage')) $('#liveStage').hidden = true;
-    $('#cameraMessage').textContent = 'Camera and microphone are ready. Start when you are ready.';
-    $('#cameraButton').hidden = true;
+    if (preview) {
+      preview.srcObject = cameraStream;
+      preview.hidden = false;
+    }
     cameraReady = true;
-    $('#goLiveButton').disabled = !livePrepared;
+    if ($('#goLiveButton')) $('#goLiveButton').disabled = !livePrepared;
   } catch (error) {
-    showToast('Camera access was not allowed. You can try again.');
+    showToast('Camera access was not allowed.');
   }
-}
-
-$('#cameraButton').hidden = true;
-$('#goLiveButton').addEventListener('click', () => {
-  $('#goLiveButton').textContent = 'End live';
-  $('#goLiveButton').classList.add('ending');
-  $('#goLiveButton').onclick = () => {
-    addHistory({ type: 'live', title: $('#liveTitleInput').value.trim(), category: $('#liveCategory').value, date: new Date().toLocaleDateString() });
-    closeLive();
-    showToast('Your live stream has ended.');
-  };
-  $('#streamStatus').textContent = 'Live now';
-  addPoints(50);
-  $('#cameraMessage').textContent = 'You are live. Only real viewers will appear in chat.';
-  if ($('#chatInput')) $('#chatInput').disabled = false;
-  if ($('#chatForm button')) $('#chatForm button').disabled = false;
-});
-
-function renderHistory(view) {
-  const panel = $('#historyPanel');
-  if (!panel) return;
-  const items = getHistory().filter((item) => item.type === (view === 'lives' ? 'live' : 'video'));
-  panel.innerHTML = `<h3>${view === 'lives' ? 'Past live streams' : 'Your videos'}</h3>`;
-  if (!items.length) {
-    panel.innerHTML += `<p class="history-empty">No ${view === 'lives' ? 'past live streams' : 'uploaded videos'} yet.</p>`;
-    return;
-  }
-  items.slice().reverse().forEach((item) => {
-    const row = document.createElement('div');
-    row.className = 'history-item';
-    row.innerHTML = `<b>${item.title}</b><small>${item.format || item.category} · ${item.date}</small>`;
-    panel.append(row);
-  });
-}
-
-$$('.account-links button').forEach((button) => button.addEventListener('click', () => {
-  const view = button.dataset.accountView;
-  if (view === 'settings') {
-    showToast('Account settings are ready for your profile preferences.');
-    return;
-  }
-  renderHistory(view);
-}));
-
-function signOut() {
-  localStorage.removeItem('snailtube-session');
-  $('#accountMenu').hidden = true;
-  $('#accountButton').textContent = 'BM';
-  $('#accountButton').title = 'Open account menu';
-  updateAccountButton();
-  showToast('You are signed out.');
-}
-$('#signOut').addEventListener('click', signOut);
-
-document.addEventListener('click', (event) => {
-  if (!event.target.closest('#accountMenu, #accountButton')) $('#accountMenu').hidden = true;
-});
-
-if ($('#chatForm')) {
-  $('#chatForm').addEventListener('submit', (event) => {
-    event.preventDefault();
-    const input = $('#chatInput');
-    if (!input.value.trim()) return;
-    const message = document.createElement('p');
-    message.className = 'chat-message';
-    message.textContent = `You: ${input.value.trim()}`;
-    $('#chatMessages').append(message);
-    $('.chat-empty')?.remove();
-    input.value = '';
-  });
 }
 
 function addPoints(amount) {
@@ -613,49 +421,6 @@ function addPoints(amount) {
   document.querySelectorAll('[data-points]').forEach((element) => { element.textContent = points; });
 }
 
-const preparation = document.createElement('div');
-preparation.className = 'live-preparation';
-preparation.innerHTML = '<label>Stream title<input id="liveTitleInput" placeholder="What are you sharing?" /></label><label>Category<select id="liveCategory"><option>People & blogs</option><option>Music</option><option>Gaming</option><option>News</option></select></label><button class="outline-button" id="prepareLive" type="button">Prepare live</button><p id="prepareStatus"></p>';
-if ($('#cameraMessage')) $('#cameraMessage').before(preparation);
-
-const pointsBar = document.createElement('div');
-pointsBar.className = 'points-bar';
-pointsBar.innerHTML = 'Your points: <strong data-points>0</strong> <span>Earn 25 per upload · 50 per live</span>';
-if ($('#cameraMessage')) $('#cameraMessage').after(pointsBar);
-
-$('#prepareLive').addEventListener('click', () => {
-  const title = $('#liveTitleInput').value.trim();
-  if (!title) {
-    showToast('Add a title before preparing your live.');
-    return;
-  }
-  $('#prepareStatus').textContent = `Ready: ${title}`;
-  livePrepared = true;
-  $('#goLiveButton').disabled = !cameraReady;
-  showToast('Live stream prepared.');
-});
-
-const superChat = document.createElement('div');
-superChat.className = 'super-chat';
-superChat.innerHTML = '<div><b>Super Chat</b><span><strong data-points>0</strong> points</span></div><div><input id="superChatInput" placeholder="Send a highlighted message" /><select id="superChatCost"><option value="10">10 points</option><option value="25">25 points</option><option value="50">50 points</option></select><button id="superChatButton" type="button">Send</button></div>';
-if ($('#chatForm')) $('#chatForm').before(superChat);
-
-$('#superChatButton').addEventListener('click', () => {
-  const points = Number(localStorage.getItem(pointsKey) || 0);
-  const cost = Number($('#superChatCost').value);
-  const message = $('#superChatInput').value.trim();
-  if (!message || points < cost) {
-    showToast(points < cost ? 'You need more points for that Super Chat.' : 'Write a message first.');
-    return;
-  }
-  localStorage.setItem(pointsKey, points - cost);
-  addPoints(0);
-  const chatMessage = document.createElement('p');
-  chatMessage.className = 'chat-message super-message';
-  chatMessage.textContent = `You · ${cost} points: ${message}`;
-  $('#chatMessages').append(chatMessage);
-  $('.chat-empty')?.remove();
-  $('#superChatInput').value = '';
-});
-
+// Initialise application setup
+loadServerVideos();
 updateAccountButton();
