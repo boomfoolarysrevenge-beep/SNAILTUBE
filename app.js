@@ -14,12 +14,33 @@ const verifiedEmail = 'boomfoolarysrevenge@gmail.com';
 let livePrepared = false;
 let cameraReady = false;
 const accountStorageKey = 'snailtube-account';
-const apiBase = window.location.origin;
 
-// ===== SNAILTUBE BACKEND (leave empty until you host the server) =====
-const BACKEND_URL = "";   // example: "https://snailtube-xxxx.onrender.com"
-const API_KEY     = "change-me-to-something-secret";
-// ====================================================================
+// Initialize Supabase Client
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Fetch videos on load from Supabase
+async function loadServerVideos() {
+  try {
+    const { data: videos, error } = await supabase
+      .from('videos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (videos && videos.length > 0) {
+      videos.forEach((item) => {
+        addPublishedVideo(item.url, item.title, item.format || 'Full video', {}, item.category || 'People & blogs');
+      });
+      if ($('.empty-feed')) $('.empty-feed').hidden = true;
+    }
+  } catch (error) {
+    console.error('Error fetching videos from Supabase:', error);
+  }
+}
+loadServerVideos();
 
 let installPrompt;
 const videoDatabase = new Promise((resolve, reject) => {
@@ -32,7 +53,7 @@ const videoDatabase = new Promise((resolve, reject) => {
 const noiseControl = document.createElement('div');
 noiseControl.className = 'noise-control';
 noiseControl.innerHTML = '<label><input type="checkbox" id="noiseReduction" checked> Reduce background noise</label><span>Echo cancellation and microphone noise suppression</span>';
-$('#cameraMessage').after(noiseControl);
+if ($('#cameraMessage')) $('#cameraMessage').after(noiseControl);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js').then((registration) => registration.update());
@@ -53,7 +74,6 @@ $('#installButton').addEventListener('click', async () => {
   $('#installButton').hidden = true;
 });
 
-// Sessions are intentionally not persisted between page loads in this prototype.
 localStorage.removeItem('snailtube-session');
 
 function showToast(message) {
@@ -211,15 +231,11 @@ $('#resetForm').addEventListener('submit', (event) => {
   showToast('Reset link sent. Check your Gmail inbox.');
 });
 
-function openUpload() {
-  uploadBackdrop.hidden = false;
-}
-function closeUpload() {
-  uploadBackdrop.hidden = true;
-}
+function openUpload() { uploadBackdrop.hidden = false; }
+function closeUpload() { uploadBackdrop.hidden = true; }
 $('#uploadButton').addEventListener('click', openUpload);
-$('#heroUpload').addEventListener('click', openUpload);
-$('#emptyUpload').addEventListener('click', openUpload);
+if ($('#heroUpload')) $('#heroUpload').addEventListener('click', openUpload);
+if ($('#emptyUpload')) $('#emptyUpload').addEventListener('click', openUpload);
 $('#closeUpload').addEventListener('click', closeUpload);
 uploadBackdrop.addEventListener('click', (event) => {
   if (event.target === uploadBackdrop) closeUpload();
@@ -232,10 +248,11 @@ let previewAudioContext;
 let previewGain;
 let previewSource;
 let previewFilter;
+
 const cleanupControl = document.createElement('label');
 cleanupControl.className = 'cleanup-control';
 cleanupControl.innerHTML = '<input type="checkbox" id="videoNoiseReduction" checked> Reduce background rumble in preview';
-$('#editorPreview').after(cleanupControl);
+if ($('#editorPreview')) $('#editorPreview').after(cleanupControl);
 
 function setSelectedVideo(file) {
   if (!file || !file.type.startsWith('video/')) {
@@ -248,9 +265,12 @@ function setSelectedVideo(file) {
   preview.hidden = false;
   $('#uploadStatus').textContent = `${file.name} is ready to publish.`;
 }
-const categoryField = document.createElement('label');
+
+if ($('#videoFormat')) {
+  const categoryField = document.createElement('label');
   categoryField.innerHTML = 'Category<select id="videoCategory"><option>People & blogs</option><option>Music</option><option>Gaming</option><option>News</option></select>';
   $('#videoFormat').closest('label').before(categoryField);
+}
 
 $('#soundBoost').addEventListener('input', (event) => {
   const amount = Number(event.target.value);
@@ -258,6 +278,7 @@ $('#soundBoost').addEventListener('input', (event) => {
   if (!previewGain) return;
   previewGain.gain.value = amount;
 });
+
 $('#editorPreview').addEventListener('play', () => {
   if (!previewAudioContext) {
     previewAudioContext = new AudioContext();
@@ -272,14 +293,13 @@ $('#editorPreview').addEventListener('play', () => {
   previewGain.gain.value = Number($('#soundBoost').value);
   previewFilter.frequency.value = $('#videoNoiseReduction').checked ? 90 : 10;
 });
+
 $('#videoNoiseReduction').addEventListener('change', (event) => {
   if (previewFilter) previewFilter.frequency.value = event.target.checked ? 90 : 10;
 });
 
 $('#chooseFile').addEventListener('click', () => videoFile.click());
-videoFile.addEventListener('change', () => {
-  setSelectedVideo(videoFile.files[0]);
-});
+videoFile.addEventListener('change', () => setSelectedVideo(videoFile.files[0]));
 dropZone.addEventListener('dragover', (event) => {
   event.preventDefault();
   dropZone.style.borderColor = 'var(--coral)';
@@ -300,6 +320,7 @@ function addPublishedVideo(source, title, format, poll, category = 'People & blo
   card.querySelector('h3').textContent = title;
   const video = card.querySelector('video');
   video.src = source;
+  
   let nextAdAt = 240;
   let startAdChecked = false;
   video.addEventListener('loadedmetadata', () => {
@@ -328,7 +349,7 @@ function addPublishedVideo(source, title, format, poll, category = 'People & blo
     button.classList.add('selected');
   }));
   $('#videoGrid').prepend(card);
-  $('.empty-feed').hidden = true;
+  if ($('.empty-feed')) $('.empty-feed').hidden = true;
 }
 
 async function showVideoAd(card, placement) {
@@ -347,6 +368,7 @@ async function showVideoAd(card, placement) {
   card.querySelector('.published-thumbnail').append(overlay);
 }
 
+// Publish button logic strictly using Supabase with IndexedDB fallback
 $('#publishButton').addEventListener('click', async () => {
   if (!selectedVideo) {
     showToast('Choose a video before publishing.');
@@ -361,56 +383,54 @@ $('#publishButton').addEventListener('click', async () => {
     one: $('#pollOptionOne').value.trim(),
     two: $('#pollOptionTwo').value.trim()
   };
+
   if (poll.question && (!poll.one || !poll.two)) {
     showToast('Add both poll options or leave the poll blank.');
     return;
   }
 
-  // Try real backend first
-  if (BACKEND_URL) {
+  try {
+    showToast('Uploading to cloud...');
+    const fileName = `${Date.now()}-${selectedVideo.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+
+    // 1. Upload to Supabase Bucket
+    const { error: uploadError } = await supabase.storage
+      .from('videos')
+      .upload(fileName, selectedVideo);
+
+    if (uploadError) throw uploadError;
+
+    // 2. Resolve public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('videos')
+      .getPublicUrl(fileName);
+
+    // 3. Save entry to Supabase DB Table
+    const { error: dbError } = await supabase
+      .from('videos')
+      .insert([{ title, format, category, url: publicUrl }]);
+
+    if (dbError) throw dbError;
+
+    addPublishedVideo(publicUrl, title, format, poll, category);
+    showToast('Video published globally!');
+  } catch (err) {
+    console.warn('Supabase upload failed, falling back to local storage', err);
     try {
-      showToast('Uploading…');
-      const formData = new FormData();
-      formData.append('file', selectedVideo);
-      formData.append('title', title);
-      formData.append('description', category + (poll.question ? ' | ' + poll.question : ''));
-
-      const response = await fetch(BACKEND_URL + '/upload', {
-        method: 'POST',
-        headers: { 'X-API-Key': API_KEY },
-        body: formData
-      });
-      if (!response.ok) throw new Error('Upload failed');
-      const published = await response.json();
-
-      addPublishedVideo(published.url, title, format, poll, category);
-      closeUpload();
-      addPoints(25);
-      showToast('Video published for everyone!');
-      selectedVideo = undefined;
-      videoFile.value = '';
-      $('#videoTitle').value = '';
-      $('#uploadStatus').textContent = '';
+      const videoId = await saveVideoFile(selectedVideo);
+      addHistory({ type: 'video', title, format, category, date: new Date().toLocaleDateString(), videoId, poll });
+      addPublishedVideo(URL.createObjectURL(selectedVideo), title, format, poll, category);
+      showToast('Cloud upload failed – saved locally instead.');
+    } catch (localError) {
+      showToast('Could not store video locally.');
       return;
-    } catch (err) {
-      console.warn('Backend upload failed, using local storage', err);
-      showToast('Server busy – saving on this device for now.');
     }
   }
 
-  // Fallback: browser storage
-  try {
-    const videoId = await saveVideoFile(selectedVideo);
-    addHistory({ type: 'video', title, format, category, date: new Date().toLocaleDateString(), videoId, poll });
-    addPublishedVideo(URL.createObjectURL(selectedVideo), title, format, poll, category);
-    closeUpload();
-    addPoints(25);
-    showToast('Video saved on this device.');
-  } catch (error) {
-    showToast('Could not store the video. Check device storage.');
-    return;
-  }
+  closeUpload();
+  addPoints(25);
 
+  // Reset Form
   selectedVideo = undefined;
   videoFile.value = '';
   $('#videoTitle').value = '';
@@ -428,22 +448,7 @@ $('#publishButton').addEventListener('click', async () => {
   $('#pollOptionTwo').value = '';
 });
 
-async function loadServerVideos() {
-  if (!BACKEND_URL) return;
-  try {
-    const response = await fetch(BACKEND_URL + '/videos');
-    if (!response.ok) return;
-    const videos = await response.json();
-    videos.reverse().forEach((item) => {
-      addPublishedVideo(item.url, item.title, 'Full video', {}, item.description || 'People & blogs');
-    });
-    if (videos.length && $('.empty-feed')) $('.empty-feed').hidden = true;
-  } catch (error) {
-    console.info('Backend not connected yet – that is ok.');
-  }
-}
-loadServerVideos();
-
+// Restore locally saved videos
 getHistory().filter((item) => item.type === 'video').forEach(async (item) => {
   try {
     const file = item.videoId ? await loadVideoFile(item.videoId) : null;
@@ -452,7 +457,6 @@ getHistory().filter((item) => item.type === 'video').forEach(async (item) => {
     showToast('One saved video could not be restored.');
   }
 });
-if (getHistory().some((item) => item.type === 'video')) $('.empty-feed').hidden = true;
 
 $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
   $$('.tab').forEach((item) => item.classList.remove('active'));
@@ -468,10 +472,12 @@ $('#themeButton').addEventListener('click', () => {
   document.body.classList.toggle('night');
   showToast(document.body.classList.contains('night') ? 'Evening mode on.' : 'Daylight mode on.');
 });
+
 const adCreator = document.createElement('div');
 adCreator.className = 'ad-creator';
 adCreator.innerHTML = '<h3>Create a video ad</h3><input id="adTitle" placeholder="Product or business name" /><textarea id="adMessage" placeholder="Short message"></textarea><input id="adVideo" type="file" accept="video/*" /><video id="adPreview" controls muted playsinline hidden></video><button id="saveAd" type="button">Save ad</button><button id="closeAd" type="button">Cancel</button>';
 document.body.append(adCreator);
+
 $('#advertiseButton').addEventListener('click', () => adCreator.classList.add('open'));
 $('#closeAd').addEventListener('click', () => adCreator.classList.remove('open'));
 $('#adVideo').addEventListener('change', () => {
@@ -498,22 +504,22 @@ $('#saveAd').addEventListener('click', async () => {
   adCreator.classList.remove('open');
   showToast('Ad saved. It will appear on eligible videos.');
 });
-$('#adsToggle').addEventListener('change', (event) => showToast(event.target.checked ? 'Ads are off for free.' : 'Ads are back on.'));
-$('#aiHelper').addEventListener('click', () => showToast('Tell Snail AI what you want to watch.'));
-$('#liveButton').addEventListener('click', () => {
-  openLive();
-});
+
+if ($('#adsToggle')) $('#adsToggle').addEventListener('change', (event) => showToast(event.target.checked ? 'Ads are off for free.' : 'Ads are back on.'));
+if ($('#aiHelper')) $('#aiHelper').addEventListener('click', () => showToast('Tell Snail AI what you want to watch.'));
+$('#liveButton').addEventListener('click', openLive);
 $('#closeLive').addEventListener('click', closeLive);
 liveBackdrop.addEventListener('click', (event) => {
   if (event.target === liveBackdrop) closeLive();
 });
+
 async function requestCamera() {
   if (!navigator.mediaDevices?.getUserMedia) {
     showToast('Camera access is unavailable in this browser.');
     return;
   }
   try {
-    const noiseReduction = $('#noiseReduction').checked;
+    const noiseReduction = $('#noiseReduction') ? $('#noiseReduction').checked : true;
     cameraStream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: noiseReduction ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : true,
@@ -521,7 +527,7 @@ async function requestCamera() {
     const preview = $('#cameraPreview');
     preview.srcObject = cameraStream;
     preview.hidden = false;
-    $('#liveStage').hidden = true;
+    if ($('#liveStage')) $('#liveStage').hidden = true;
     $('#cameraMessage').textContent = 'Camera and microphone are ready. Start when you are ready.';
     $('#cameraButton').hidden = true;
     cameraReady = true;
@@ -530,6 +536,7 @@ async function requestCamera() {
     showToast('Camera access was not allowed. You can try again.');
   }
 }
+
 $('#cameraButton').hidden = true;
 $('#goLiveButton').addEventListener('click', () => {
   $('#goLiveButton').textContent = 'End live';
@@ -542,12 +549,13 @@ $('#goLiveButton').addEventListener('click', () => {
   $('#streamStatus').textContent = 'Live now';
   addPoints(50);
   $('#cameraMessage').textContent = 'You are live. Only real viewers will appear in chat.';
-  $('#chatInput').disabled = false;
-  $('#chatForm button').disabled = false;
+  if ($('#chatInput')) $('#chatInput').disabled = false;
+  if ($('#chatForm button')) $('#chatForm button').disabled = false;
 });
 
 function renderHistory(view) {
   const panel = $('#historyPanel');
+  if (!panel) return;
   const items = getHistory().filter((item) => item.type === (view === 'lives' ? 'live' : 'video'));
   panel.innerHTML = `<h3>${view === 'lives' ? 'Past live streams' : 'Your videos'}</h3>`;
   if (!items.length) {
@@ -570,6 +578,7 @@ $$('.account-links button').forEach((button) => button.addEventListener('click',
   }
   renderHistory(view);
 }));
+
 function signOut() {
   localStorage.removeItem('snailtube-session');
   $('#accountMenu').hidden = true;
@@ -579,20 +588,24 @@ function signOut() {
   showToast('You are signed out.');
 }
 $('#signOut').addEventListener('click', signOut);
+
 document.addEventListener('click', (event) => {
   if (!event.target.closest('#accountMenu, #accountButton')) $('#accountMenu').hidden = true;
 });
-$('#chatForm').addEventListener('submit', (event) => {
-  event.preventDefault();
-  const input = $('#chatInput');
-  if (!input.value.trim()) return;
-  const message = document.createElement('p');
-  message.className = 'chat-message';
-  message.textContent = `You: ${input.value.trim()}`;
-  $('#chatMessages').append(message);
-  $('.chat-empty')?.remove();
-  input.value = '';
-});
+
+if ($('#chatForm')) {
+  $('#chatForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = $('#chatInput');
+    if (!input.value.trim()) return;
+    const message = document.createElement('p');
+    message.className = 'chat-message';
+    message.textContent = `You: ${input.value.trim()}`;
+    $('#chatMessages').append(message);
+    $('.chat-empty')?.remove();
+    input.value = '';
+  });
+}
 
 function addPoints(amount) {
   const points = Number(localStorage.getItem(pointsKey) || 0) + amount;
@@ -600,16 +613,16 @@ function addPoints(amount) {
   document.querySelectorAll('[data-points]').forEach((element) => { element.textContent = points; });
 }
 
-const liveModal = $('.live-modal');
 const preparation = document.createElement('div');
 preparation.className = 'live-preparation';
 preparation.innerHTML = '<label>Stream title<input id="liveTitleInput" placeholder="What are you sharing?" /></label><label>Category<select id="liveCategory"><option>People & blogs</option><option>Music</option><option>Gaming</option><option>News</option></select></label><button class="outline-button" id="prepareLive" type="button">Prepare live</button><p id="prepareStatus"></p>';
-$('#cameraMessage').before(preparation);
-$('#cameraButton').disabled = true;
+if ($('#cameraMessage')) $('#cameraMessage').before(preparation);
+
 const pointsBar = document.createElement('div');
 pointsBar.className = 'points-bar';
 pointsBar.innerHTML = 'Your points: <strong data-points>0</strong> <span>Earn 25 per upload · 50 per live</span>';
-$('#cameraMessage').after(pointsBar);
+if ($('#cameraMessage')) $('#cameraMessage').after(pointsBar);
+
 $('#prepareLive').addEventListener('click', () => {
   const title = $('#liveTitleInput').value.trim();
   if (!title) {
@@ -625,7 +638,8 @@ $('#prepareLive').addEventListener('click', () => {
 const superChat = document.createElement('div');
 superChat.className = 'super-chat';
 superChat.innerHTML = '<div><b>Super Chat</b><span><strong data-points>0</strong> points</span></div><div><input id="superChatInput" placeholder="Send a highlighted message" /><select id="superChatCost"><option value="10">10 points</option><option value="25">25 points</option><option value="50">50 points</option></select><button id="superChatButton" type="button">Send</button></div>';
-$('#chatForm').before(superChat);
+if ($('#chatForm')) $('#chatForm').before(superChat);
+
 $('#superChatButton').addEventListener('click', () => {
   const points = Number(localStorage.getItem(pointsKey) || 0);
   const cost = Number($('#superChatCost').value);
@@ -643,4 +657,5 @@ $('#superChatButton').addEventListener('click', () => {
   $('.chat-empty')?.remove();
   $('#superChatInput').value = '';
 });
+
 updateAccountButton();
