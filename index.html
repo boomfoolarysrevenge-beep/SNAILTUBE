@@ -133,6 +133,19 @@
     </form>
     <button type="button" id="backToLogin" class="link-button">Back to sign in</button>
   </section>
+  <section class="modal" id="createAccountModal" role="dialog" aria-modal="true" aria-labelledby="createAccountTitle" hidden>
+    <button class="close-modal" id="closeCreateAccount" aria-label="Close modal">✕</button>
+    <h2 id="createAccountTitle">Create your account</h2>
+    <form id="createAccountForm">
+      <input id="accountNameInput" type="text" placeholder="Your name" required />
+      <input id="accountEmailInput" type="email" placeholder="Email address" autocomplete="email" required />
+      <input id="accountPasswordInput" type="password" placeholder="Password (8+ characters)" minlength="8" required />
+      <input id="accountQuestionInput" type="text" placeholder="Security question" required />
+      <input id="accountAnswerInput" type="text" placeholder="Security answer" required />
+      <button type="submit">Create account</button>
+    </form>
+    <button type="button" id="backToLoginFromCreate" class="link-button">Back to sign in</button>
+  </section>
 </div>
 
   <!-- Upload Modal -->
