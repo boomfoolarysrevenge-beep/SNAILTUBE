@@ -106,12 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast(`Signed in as ${account.name}.`);
   }
 
-  const createAccountButton = document.createElement('button');
-  createAccountButton.type = 'button';
-  createAccountButton.className = 'forgot-link';
-  createAccountButton.textContent = 'Create account';
-  $('#emailForm')?.after(createAccountButton);
-  createAccountButton.addEventListener('click', async () => {
+  $('#createAccountButton')?.addEventListener('click', async () => {
     const name = window.prompt('Your name');
     const email = window.prompt('Your email address');
     const password = window.prompt('Choose a password (8+ characters)');
