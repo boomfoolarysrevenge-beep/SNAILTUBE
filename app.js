@@ -53,11 +53,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!accountButton) return;
 
     if (account) {
-      accountButton.textContent = account.name.slice(0, 2).toUpperCase();
+      accountButton.replaceChildren();
+      if (account.profilePicture) {
+        const image = document.createElement('img');
+        image.src = account.profilePicture;
+        image.alt = `${account.name}'s profile picture`;
+        accountButton.append(image);
+      } else {
+        accountButton.textContent = account.name.slice(0, 2).toUpperCase();
+      }
       accountButton.title = `Signed in as ${account.email}`;
+      $('#accountLargeAvatar').replaceChildren();
+      if (account.profilePicture) {
+        const image = document.createElement('img');
+        image.src = account.profilePicture;
+        image.alt = `${account.name}'s profile picture`;
+        $('#accountLargeAvatar').append(image);
+      } else {
+        $('#accountLargeAvatar').textContent = account.name.slice(0, 2).toUpperCase();
+      }
+      $('#accountName').firstChild.textContent = account.name;
+      $('#accountEmail').textContent = account.email;
+      $('#verifiedTick').hidden = account.email !== verifiedEmail;
     } else {
       accountButton.textContent = 'BM';
       accountButton.title = 'Open account menu';
+      $('#accountLargeAvatar').textContent = 'BM';
+      $('#accountName').firstChild.textContent = 'Your account';
+      $('#accountEmail').textContent = '';
+      $('#verifiedTick').hidden = true;
     }
   }
 
@@ -118,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const account = {
       name,
-      email,
+      email: email.trim().toLowerCase(),
       passwordHash: await hashValue(password),
       securityQuestion: question,
       securityAnswerHash: await hashValue(answer),
@@ -218,10 +242,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = document.createElement('article');
     card.className = 'video-card published-video';
     card.dataset.category = (videoData.category || 'People & blogs').toLowerCase();
-    card.innerHTML = '<div class="thumbnail published-thumbnail"><video controls playsinline></video><span class="duration"></span></div><div class="video-meta"><h3></h3><p>Community upload</p></div>';
+    card.dataset.videoId = videoData.id;
+    card.innerHTML = '<div class="thumbnail published-thumbnail"><video controls playsinline></video><span class="duration"></span></div><div class="video-meta"><h3></h3><p>Community upload</p></div><button class="remove-video" type="button" hidden>Remove video</button>';
     card.querySelector('h3').textContent = videoData.title;
     card.querySelector('.duration').textContent = videoData.format;
     card.querySelector('video').src = new URL(videoData.url, apiBase).href;
+    const account = JSON.parse(localStorage.getItem(accountStorageKey) || 'null');
+    const removeButton = card.querySelector('.remove-video');
+    removeButton.hidden = account?.email !== verifiedEmail;
+    removeButton.addEventListener('click', async () => {
+      if (!window.confirm('Remove this video?')) return;
+      const response = await fetch(`${apiBase}/api/videos/${videoData.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: account.email }),
+      });
+      if (!response.ok) {
+        showToast('Only the verified account can remove videos.');
+        return;
+      }
+      card.remove();
+      showToast('Video removed.');
+    });
     $('#videoGrid').prepend(card);
     $('.empty-feed').hidden = true;
   }
@@ -268,6 +310,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   loadVideos();
+
+  $('#changeProfilePicture')?.addEventListener('click', () => $('#profilePictureInput').click());
+  $('#profilePictureInput')?.addEventListener('change', () => {
+    const file = $('#profilePictureInput').files[0];
+    const account = JSON.parse(localStorage.getItem(accountStorageKey) || 'null');
+    if (!file || !account) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      account.profilePicture = reader.result;
+      localStorage.setItem(accountStorageKey, JSON.stringify(account));
+      updateAccountButton();
+      showToast('Profile picture updated.');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('#signOut')?.addEventListener('click', () => {
+    localStorage.removeItem('snailtube-session');
+    if (accountMenu) accountMenu.hidden = true;
+    updateAccountButton();
+    showToast('Signed out.');
+  });
 
   // 6. Theme & Interaction
   $('#themeButton')?.addEventListener('click', () => {

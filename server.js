@@ -12,6 +12,7 @@ const dataFile = path.join(root, 'videos.json');
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseBucket = process.env.SUPABASE_STORAGE_BUCKET || 'videos';
+const verifiedEmail = 'boomfoolarysrevenge@gmail.com';
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 fs.mkdirSync(uploadDir, { recursive: true });
 if (!fs.existsSync(dataFile)) fs.writeFileSync(dataFile, '[]');
@@ -120,6 +121,23 @@ async function addComment(videoId, author, text) {
   };
 }
 
+async function removeVideo(videoId) {
+  if (!supabase) {
+    const videos = readVideos();
+    const video = videos.find((item) => item.id === videoId);
+    if (!video) return false;
+    await fsp.rm(path.join(root, video.url.replace(/^\/uploads\//, '')), { force: true });
+    writeVideos(videos.filter((item) => item.id !== videoId));
+    return true;
+  }
+  const { data, error } = await supabase.from('videos').select('storage_path').eq('id', videoId).single();
+  if (error || !data) return false;
+  await supabase.storage.from(supabaseBucket).remove([data.storage_path]);
+  const { error: deleteError } = await supabase.from('videos').delete().eq('id', videoId);
+  if (deleteError) throw deleteError;
+  return true;
+}
+
 app.use(express.json());
 app.use(express.static(root));
 app.get('/api/videos', async (_req, res) => {
@@ -149,6 +167,18 @@ app.post('/api/videos/:videoId/comments', async (req, res) => {
   } catch (error) {
     console.error('Could not save comment:', error.message);
     res.status(500).json({ error: 'Could not save comment.' });
+  }
+});
+app.delete('/api/videos/:videoId', async (req, res) => {
+  if (typeof req.body.email !== 'string' || req.body.email.trim().toLowerCase() !== verifiedEmail) {
+    return res.status(403).json({ error: 'Only the verified account can remove videos.' });
+  }
+  try {
+    if (!await removeVideo(req.params.videoId)) return res.status(404).json({ error: 'Video not found.' });
+    res.status(204).end();
+  } catch (error) {
+    console.error('Could not remove video:', error.message);
+    res.status(500).json({ error: 'Could not remove video.' });
   }
 });
 app.post('/api/videos', upload.single('video'), async (req, res) => {
