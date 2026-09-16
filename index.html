@@ -124,24 +124,15 @@
     <button class="close-modal" id="closeReset" aria-label="Close modal">✕</button>
     <h2 id="resetTitle">Reset your password</h2>
     <form id="resetForm">
-      <input type="email" placeholder="Enter your email" autocomplete="email" required />
-      <button type="submit">Send reset link</button>
+      <input id="resetEmail" type="email" placeholder="Enter your email" autocomplete="email" required />
+      <p id="securityQuestion" hidden></p>
+      <input id="securityAnswer" type="text" placeholder="Answer to your security question" hidden />
+      <input id="newPassword" type="password" placeholder="New password (8+ characters)" hidden minlength="8" />
+      <button type="submit">Continue</button>
     </form>
     <button type="button" id="backToLogin" class="link-button">Back to sign in</button>
   </section>
 </div>
-
-    <!-- Reset Modal -->
-    <section class="modal" id="resetModal" role="dialog" aria-modal="true" hidden>
-      <button class="close-modal" id="closeReset">✕</button>
-      <h2>Reset Password</h2>
-      <form id="resetForm">
-        <input type="email" placeholder="Enter your email" required />
-        <button type="submit">Send Reset Link</button>
-      </form>
-      <button type="button" id="backToLogin">Back to Login</button>
-    </section>
-  </div>
 
   <!-- Upload Modal -->
   <div class="modal-backdrop" id="uploadBackdrop" hidden>
