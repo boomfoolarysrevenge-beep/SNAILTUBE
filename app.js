@@ -7,11 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const authModal = $('#authModal');
   const resetModal = $('#resetModal');
   const uploadBackdrop = $('#uploadBackdrop');
-  const liveBackdrop = $('#liveBackdrop');
   const toast = $('#toast');
   const accountMenu = $('#accountMenu');
-  let cameraStream;
-  let liveStarted = false;
 
   const pointsKey = 'snailtube-points';
   const historyKey = 'snailtube-history';
@@ -272,70 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   loadVideos();
 
-  // 6. Live Stream Modal Handlers
-  function openLive() {
-    if (liveBackdrop) liveBackdrop.hidden = false;
-    $('#cameraButton').hidden = false;
-    $('#goLiveButton').disabled = true;
-    $('#streamStatus').textContent = 'Not live';
-    $('#cameraMessage').textContent = 'Allow camera and microphone access to begin.';
-  }
-  function closeLive() {
-    cameraStream?.getTracks().forEach((track) => track.stop());
-    cameraStream = undefined;
-    liveStarted = false;
-    $('#cameraPreview').srcObject = null;
-    if (liveBackdrop) liveBackdrop.hidden = true;
-  }
-
-  $('#cameraButton')?.addEventListener('click', async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      showToast('Camera access is unavailable in this browser.');
-      return;
-    }
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: { echoCancellation: true, noiseSuppression: true },
-      });
-      const preview = $('#cameraPreview');
-      preview.srcObject = cameraStream;
-      preview.hidden = false;
-      $('#cameraButton').hidden = true;
-      $('#goLiveButton').disabled = false;
-      $('#cameraMessage').textContent = 'Camera and microphone are ready.';
-    } catch (error) {
-      showToast('Camera access was not allowed.');
-    }
-  });
-
-  $('#goLiveButton')?.addEventListener('click', () => {
-    if (!cameraStream) return;
-    liveStarted = !liveStarted;
-    $('#goLiveButton').textContent = liveStarted ? 'End live' : 'Go live';
-    $('#streamStatus').textContent = liveStarted ? 'Live now' : 'Not live';
-    $('#chatInput').disabled = !liveStarted;
-    $('#chatForm button').disabled = !liveStarted;
-    $('#cameraMessage').textContent = liveStarted ? 'You are live.' : 'Camera and microphone are ready.';
-  });
-  $('#chatForm')?.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const input = $('#chatInput');
-    const text = input.value.trim();
-    if (!text || !liveStarted) return;
-    const message = document.createElement('p');
-    message.textContent = `You: ${text}`;
-    $('#chatMessages').append(message);
-    input.value = '';
-  });
-
-  $('#liveButton')?.addEventListener('click', openLive);
-  $('#closeLive')?.addEventListener('click', closeLive);
-  liveBackdrop?.addEventListener('click', (e) => {
-    if (e.target === liveBackdrop) closeLive();
-  });
-
-  // 7. Theme & Interaction
+  // 6. Theme & Interaction
   $('#themeButton')?.addEventListener('click', () => {
     document.body.classList.toggle('night');
     showToast(document.body.classList.contains('night') ? 'Evening mode on.' : 'Daylight mode on.');
