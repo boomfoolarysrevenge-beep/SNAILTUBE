@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const historyKey = 'snailtube-history';
   const verifiedEmail = 'boomfoolarysrevenge@gmail.com';
   const accountStorageKey = 'snailtube-account';
+  const apiBase = window.SNAILTUBE_API_URL || window.location.origin;
   const accountResetKey = 'snailtube-account-reset-2026-09-16';
   if (!localStorage.getItem(accountResetKey)) {
     localStorage.removeItem(accountStorageKey);
@@ -184,6 +185,89 @@ document.addEventListener('DOMContentLoaded', () => {
   uploadBackdrop?.addEventListener('click', (e) => {
     if (e.target === uploadBackdrop) closeUpload();
   });
+
+  const videoFile = $('#videoFile');
+  const dropZone = $('#dropZone');
+  const editorPreview = $('#editorPreview');
+  let selectedVideo;
+
+  function setSelectedVideo(file) {
+    if (!file || !file.type.startsWith('video/')) {
+      $('#uploadStatus').textContent = 'Please choose a video file.';
+      return;
+    }
+    selectedVideo = file;
+    editorPreview.src = URL.createObjectURL(file);
+    editorPreview.hidden = false;
+    $('#uploadStatus').textContent = `${file.name} is ready to publish.`;
+  }
+
+  $('#chooseFile')?.addEventListener('click', () => videoFile?.click());
+  videoFile?.addEventListener('change', () => setSelectedVideo(videoFile.files[0]));
+  dropZone?.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropZone.style.borderColor = 'var(--coral)';
+  });
+  dropZone?.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+  dropZone?.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropZone.style.borderColor = '';
+    setSelectedVideo(event.dataTransfer.files[0]);
+  });
+
+  function addVideoCard(videoData) {
+    const card = document.createElement('article');
+    card.className = 'video-card published-video';
+    card.innerHTML = '<div class="thumbnail published-thumbnail"><video controls playsinline></video><span class="duration"></span></div><div class="video-meta"><h3></h3><p>Community upload</p></div>';
+    card.querySelector('h3').textContent = videoData.title;
+    card.querySelector('.duration').textContent = videoData.format;
+    card.querySelector('video').src = new URL(videoData.url, apiBase).href;
+    $('#videoGrid').prepend(card);
+    $('.empty-feed').hidden = true;
+  }
+
+  $('#publishButton')?.addEventListener('click', async () => {
+    if (!selectedVideo) {
+      showToast('Choose a video before publishing.');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('video', selectedVideo);
+    formData.append('title', $('#videoTitle').value.trim() || selectedVideo.name);
+    formData.append('format', $('#videoFormat').value);
+    try {
+      $('#publishButton').disabled = true;
+      $('#uploadStatus').textContent = 'Uploading...';
+      const response = await fetch(`${apiBase}/api/videos`, { method: 'POST', body: formData });
+      if (!response.ok) throw new Error('Upload failed.');
+      addVideoCard(await response.json());
+      closeUpload();
+      selectedVideo = undefined;
+      videoFile.value = '';
+      editorPreview.removeAttribute('src');
+      editorPreview.hidden = true;
+      $('#videoTitle').value = '';
+      $('#uploadStatus').textContent = '';
+      showToast('Video published.');
+    } catch (error) {
+      $('#uploadStatus').textContent = 'Upload failed.';
+      showToast('Uploads need the SnailTube server running.');
+    } finally {
+      $('#publishButton').disabled = false;
+    }
+  });
+
+  async function loadVideos() {
+    try {
+      const response = await fetch(`${apiBase}/api/videos`);
+      if (!response.ok) return;
+      const videos = await response.json();
+      videos.forEach(addVideoCard);
+    } catch (error) {
+      console.info('Video server is not connected.');
+    }
+  }
+  loadVideos();
 
   // 6. Live Stream Modal Handlers
   function openLive() { if (liveBackdrop) liveBackdrop.hidden = false; }
