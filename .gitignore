@@ -1,3 +1,6 @@
 node_modules/
 uploads/
 videos.json
+.env
+.env.*
+!.env.example
