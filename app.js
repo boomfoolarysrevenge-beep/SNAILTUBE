@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalBackdrop = $('#modalBackdrop');
   const authModal = $('#authModal');
   const resetModal = $('#resetModal');
-  const createAccountModal = $('#createAccountModal');
   const uploadBackdrop = $('#uploadBackdrop');
   const liveBackdrop = $('#liveBackdrop');
   const toast = $('#toast');
@@ -68,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalBackdrop) modalBackdrop.hidden = false;
     if (authModal) authModal.hidden = false;
     if (resetModal) resetModal.hidden = true;
-    if (createAccountModal) createAccountModal.hidden = true;
   }
 
   function closeAuth() {
@@ -108,25 +106,14 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast(`Signed in as ${account.name}.`);
   }
 
-  $('#createAccountButton')?.addEventListener('click', () => {
-    if (authModal) authModal.hidden = true;
-    if (createAccountModal) createAccountModal.hidden = false;
-  });
-  $('#closeCreateAccount')?.addEventListener('click', closeAuth);
-  $('#backToLoginFromCreate')?.addEventListener('click', () => {
-    if (createAccountModal) createAccountModal.hidden = true;
-    if (authModal) authModal.hidden = false;
-  });
-  $('#createAccountForm')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const name = $('#accountNameInput').value.trim();
-    const email = $('#accountEmailInput').value.trim().toLowerCase();
-    const password = $('#accountPasswordInput').value;
-    const question = $('#accountQuestionInput').value.trim();
-    const answer = $('#accountAnswerInput').value.trim();
+  $('#createAccountButton')?.addEventListener('click', async () => {
+    const name = window.prompt('Your name');
+    const email = window.prompt('Your email address');
+    const password = window.prompt('Choose a password (8+ characters)');
+    const question = window.prompt('Security question');
+    const answer = window.prompt('Answer to your security question');
     if (!name || !email || !password || password.length < 8 || !question || !answer) {
-      showToast('Complete every field. Passwords must be at least 8 characters.');
+      showToast('Enter a name, email, password, security question, and answer.');
       return;
     }
     const account = {
@@ -139,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(accountStorageKey, JSON.stringify(account));
     localStorage.setItem('snailtube-session', account.email);
     updateAccountButton();
-    form.reset();
     closeAuth();
     showToast(`Account created for ${account.name}.`);
   });
