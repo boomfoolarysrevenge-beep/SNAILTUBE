@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const liveBackdrop = $('#liveBackdrop');
   const toast = $('#toast');
   const accountMenu = $('#accountMenu');
+  let cameraStream;
+  let liveStarted = false;
 
   const pointsKey = 'snailtube-points';
   const historyKey = 'snailtube-history';
@@ -218,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function addVideoCard(videoData) {
     const card = document.createElement('article');
     card.className = 'video-card published-video';
+    card.dataset.category = (videoData.category || 'People & blogs').toLowerCase();
     card.innerHTML = '<div class="thumbnail published-thumbnail"><video controls playsinline></video><span class="duration"></span></div><div class="video-meta"><h3></h3><p>Community upload</p></div>';
     card.querySelector('h3').textContent = videoData.title;
     card.querySelector('.duration').textContent = videoData.format;
@@ -270,8 +273,61 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVideos();
 
   // 6. Live Stream Modal Handlers
-  function openLive() { if (liveBackdrop) liveBackdrop.hidden = false; }
-  function closeLive() { if (liveBackdrop) liveBackdrop.hidden = true; }
+  function openLive() {
+    if (liveBackdrop) liveBackdrop.hidden = false;
+    $('#cameraButton').hidden = false;
+    $('#goLiveButton').disabled = true;
+    $('#streamStatus').textContent = 'Not live';
+    $('#cameraMessage').textContent = 'Allow camera and microphone access to begin.';
+  }
+  function closeLive() {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    cameraStream = undefined;
+    liveStarted = false;
+    $('#cameraPreview').srcObject = null;
+    if (liveBackdrop) liveBackdrop.hidden = true;
+  }
+
+  $('#cameraButton')?.addEventListener('click', async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showToast('Camera access is unavailable in this browser.');
+      return;
+    }
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      const preview = $('#cameraPreview');
+      preview.srcObject = cameraStream;
+      preview.hidden = false;
+      $('#cameraButton').hidden = true;
+      $('#goLiveButton').disabled = false;
+      $('#cameraMessage').textContent = 'Camera and microphone are ready.';
+    } catch (error) {
+      showToast('Camera access was not allowed.');
+    }
+  });
+
+  $('#goLiveButton')?.addEventListener('click', () => {
+    if (!cameraStream) return;
+    liveStarted = !liveStarted;
+    $('#goLiveButton').textContent = liveStarted ? 'End live' : 'Go live';
+    $('#streamStatus').textContent = liveStarted ? 'Live now' : 'Not live';
+    $('#chatInput').disabled = !liveStarted;
+    $('#chatForm button').disabled = !liveStarted;
+    $('#cameraMessage').textContent = liveStarted ? 'You are live.' : 'Camera and microphone are ready.';
+  });
+  $('#chatForm')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = $('#chatInput');
+    const text = input.value.trim();
+    if (!text || !liveStarted) return;
+    const message = document.createElement('p');
+    message.textContent = `You: ${text}`;
+    $('#chatMessages').append(message);
+    input.value = '';
+  });
 
   $('#liveButton')?.addEventListener('click', openLive);
   $('#closeLive')?.addEventListener('click', closeLive);
@@ -290,6 +346,10 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', (e) => {
       $$('.category').forEach(btn => btn.classList.remove('active'));
       e.target.classList.add('active');
+      const category = e.target.textContent.trim().toLowerCase();
+      $$('.video-card').forEach((card) => {
+        card.hidden = category !== 'all' && card.dataset.category !== category;
+      });
     });
   });
 
